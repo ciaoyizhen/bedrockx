@@ -65,9 +65,11 @@ class BaseMultiThreading():
                     result = json.dumps(result, ensure_ascii=False)
                     f.write(result + "\n")
                     f.flush()
+            except NotImplementedError:
+                raise
             except KeyboardInterrupt:
-                exit()
                 exec.shutdown(cancel_futures=True)
+                exit()
             except Exception:
                 import traceback
                 base_logger.error(traceback.format_exc())
