@@ -14,3 +14,13 @@ dependencies = [
 [project.optional-dependencies]
 
 [tool.uv.workspace]
+
+[[tool.uv.index]]
+url = "https://mirrors.aliyun.com/pypi/simple/"
+default = true
+
+[dependency-groups]
+dev = [
+    "pytest>=9.0.2",
+    "pytest-cov>=7.0.0",
+]

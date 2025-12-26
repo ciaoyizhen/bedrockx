@@ -63,13 +63,13 @@ def read_file(file_name: str|Path, *, output_type="list", file_type=None, main_k
                             return_data.append(line)
                         elif isinstance(return_data, dict):
                             if main_key_column not in line:
-                                raise RuntimeError(f"对象没有{main_key_column=}\n原始数据:{row}")
+                                raise RuntimeError(f"对象没有{main_key_column=}\n原始数据:{line}")
 
                             value = line[main_key_column]
                             return_data[value] = line
                         elif isinstance(return_data, set):
                             if main_key_column not in line:
-                                raise RuntimeError(f"对象没有{main_key_column=}\n原始数据:{row}")
+                                raise RuntimeError(f"对象没有{main_key_column=}\n原始数据:{line}")
                             return_data.add(line[main_key_column])
                 return return_data
             
