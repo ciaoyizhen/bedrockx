@@ -16,3 +16,6 @@ main.py
 output
 json_test.json
 logs
+test.txt
+.coverage
+temp_dir
