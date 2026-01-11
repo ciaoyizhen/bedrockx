@@ -30,6 +30,21 @@ class TestMultiThreading:
         result = read_file(save_path)
         assert len(result) == 2
         assert all(item["processed"] for item in result)
+
+        processor = TestProcessor(max_workers=2, save_path=save_path, continue_save=True)
+        data = [
+            {"id": 1, "name": "Alice"},
+            {"id": 2, "name": "Bob"}
+        ]
+        
+        processor(data)
+        
+        assert save_path.exists()
+        result = read_file(save_path)
+        assert len(result) == 4
+        assert all(item["processed"] for item in result)
+
+
     
     def test_with_custom_file_type(self, temp_dir):
         """测试指定文件类型"""
@@ -83,3 +98,4 @@ class TestMultiThreading:
         
         # 多线程应该比单线程快
         assert duration < 0.1  # 10个任务，单线程需要0.1秒，多线程应该快得多
+        

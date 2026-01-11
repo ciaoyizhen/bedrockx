@@ -46,6 +46,7 @@ def drop_duplicates(data: list[dict], main_key_column:str)-> list[dict]:
             if key not in temp_set:
                 new_data.append(item)
                 temp_set.add(key)
+    base_logger.info(f"原始数据大小:{len(data)}, 过滤后大小:{len(new_data)}")
     return new_data
 
 

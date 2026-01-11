@@ -17,7 +17,7 @@ class BaseMultiThreading():
     """
     基类, 实现多线程的消费者生产者的处理, 实现边处理边存储
     """
-    def __init__(self, max_workers:int, save_path: str|Path=None, *, file_type:str|Path=None, **kwargs):
+    def __init__(self, max_workers:int, save_path: str|Path=None, *, file_type:str|Path=None, continue_save: bool=False, **kwargs):
         """_summary_
 
         Args:
@@ -25,6 +25,7 @@ class BaseMultiThreading():
             single_file_size (int): 临时存储时，单个文件的大小
             save_path (str|Path): 最终完整保存的文件
             file_type (str|Path): 文件存储类型
+            continue_save (bool): 是否接着之前的存储文件进行存储
         """
         self.max_workers = max_workers
         self.save_path = Path(save_path)
@@ -35,7 +36,8 @@ class BaseMultiThreading():
             
         if self.file_type not in {"json", "jsonl", "xlsx", "csv"}:
             raise RuntimeError(f"传入的file_type不符合要求或你的文件后缀不符合要求")
-
+        self.save_path.parent.mkdir(exist_ok=True)
+        self.file_mode = "a" if continue_save else "w"
         self.post_init(**kwargs)
     
     def post_init(self, **kwargs):
@@ -52,7 +54,7 @@ class BaseMultiThreading():
     def __call__(self, data:list):
         with ThreadPoolExecutor(max_workers=self.max_workers, thread_name_prefix="线程处理数据") as exec, \
             tqdm(total=len(data), desc=f"{self.max_workers}并发处理中") as p_bar, \
-            open(self.save_path, "w", encoding="utf-8") as f:
+            open(self.save_path, self.file_mode, encoding="utf-8") as f:
             try:
                 futures_list = []
                 for item in data:
