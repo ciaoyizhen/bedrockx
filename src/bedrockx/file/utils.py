@@ -65,7 +65,23 @@ class ReadFileExampleCallBack:
             "text_length": len(item["message"][0]["content"]),
             "role": item["message"][0]["role"]
         }
-    
+
+def _get_line_count(file_path: Path) -> int:
+    """
+    快速计算文件行数（不加载到内存）
+    对于大文件，这比直接遍历快得多
+    """
+    lines = 0
+    with file_path.open("rb") as f:
+        # 使用 1MB 的 buffer 逐块读取来数换行符
+        buf_size = 1024 * 1024
+        read_f = f.raw.read
+        buffer = read_f(buf_size)
+        while buffer:
+            lines += buffer.count(b'\n')
+            buffer = read_f(buf_size)
+    return lines
+
 def read_file(
     file_name: Union[str, Path], 
     *, 
@@ -161,7 +177,7 @@ def read_file(
                 iterator = islice(f, data_length)
                 
                 # 为了 tqdm 显示进度，如果知道 data_length，则传入 total
-                total_count = data_length if data_length else None
+                total_count = data_length if data_length else _get_line_count(file_name)
                 
                 for line in tqdm(iterator, total=total_count, disable=disable_tqdm):
                     if line := line.strip():
