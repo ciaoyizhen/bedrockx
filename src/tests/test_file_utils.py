@@ -165,7 +165,7 @@ class TestReadFileCallbacks:
         assert len(result) == 3
         # 验证结构是否已扁平化
         assert result[0] == {"content": "这是第一个好评", "label": "positive"}
-        assert "message" not in result[0] # 原始字段不应该存在
+        assert "messages" not in result[0] # 原始字段不应该存在
 
     def test_callback_filter_logic(self, complex_jsonl_file):
         """
@@ -202,7 +202,7 @@ class TestReadFileCallbacks:
         item_101 = result[101]
         assert item_101["text_length"] > 0
         assert item_101["role"] == "user"
-        assert "message" not in item_101 # 确保是转换后的数据
+        assert "messages" not in item_101 # 确保是转换后的数据
 
     def test_callback_lambda(self, complex_jsonl_file):
         """测试使用 lambda 匿名函数"""

@@ -96,19 +96,19 @@ def complex_jsonl_file(temp_dir):
         {
             "id": 101, 
             "label": "positive", 
-            "message": [{"role": "user", "content": "这是第一个好评"}]
+            "messages": [{"role": "user", "content": "这是第一个好评"}]
         },
         # ID 2: Negative
         {
             "id": 102, 
             "label": "negative", 
-            "message": [{"role": "user", "content": "这是差评"}]
+            "messages": [{"role": "user", "content": "这是差评"}]
         },
         # ID 3: Positive (重复内容，用于测试 Set)
         {
             "id": 103, 
             "label": "positive", 
-            "message": [{"role": "user", "content": "这是第一个好评"}] 
+            "messages": [{"role": "user", "content": "这是第一个好评"}] 
         }
     ]
     

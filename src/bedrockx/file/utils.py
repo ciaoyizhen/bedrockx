@@ -27,7 +27,7 @@ class ReadFileExampleCallBack:
         用途：output_type="set" 或 "list"
         """
         # 假设数据格式: {"message": [{"content": "..."}]}
-        return item["message"][0]["content"]
+        return item["messages"][0]["content"]
     
     @staticmethod
     def extract_content_dict(item: Dict) -> Dict:
@@ -35,7 +35,7 @@ class ReadFileExampleCallBack:
         场景：将嵌套结构扁平化
         用途：output_type="list"
         """
-        content = item["message"][0]["content"]
+        content = item["messages"][0]["content"]
         label = item.get("label", "unknown")
         # 返回一个新的扁平字典
         return {"content": content, "label": label}
@@ -62,8 +62,8 @@ class ReadFileExampleCallBack:
         # 提取内容，但必须保留 'id' 字段，否则 read_file 会报错
         return {
             "id": item["id"], 
-            "text_length": len(item["message"][0]["content"]),
-            "role": item["message"][0]["role"]
+            "text_length": len(item["messages"][0]["content"]),
+            "role": item["messages"][0]["role"]
         }
 
 def _get_line_count(file_path: Path) -> int:
@@ -166,6 +166,8 @@ def read_file(
             else:
                 if isinstance(item, str) or isinstance(item, int):
                     return_data.add(item)
+                else:
+                    raise RuntimeError(f"返回set集合时，若需要使用process_fn，则需要返回str 或 int对象")
 
     # 3. 根据文件类型分发处理
     match file_type:
