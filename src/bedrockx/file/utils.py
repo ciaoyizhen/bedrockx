@@ -27,7 +27,7 @@ class ReadFileExampleCallBack:
         用途：output_type="set" 或 "list"
         """
         # 假设数据格式: {"message": [{"content": "..."}]}
-        return item["message"][0]["content"]
+        return item["messages"][0]["content"]
     
     @staticmethod
     def extract_content_dict(item: Dict) -> Dict:
@@ -35,7 +35,7 @@ class ReadFileExampleCallBack:
         场景：将嵌套结构扁平化
         用途：output_type="list"
         """
-        content = item["message"][0]["content"]
+        content = item["messages"][0]["content"]
         label = item.get("label", "unknown")
         # 返回一个新的扁平字典
         return {"content": content, "label": label}
@@ -62,10 +62,26 @@ class ReadFileExampleCallBack:
         # 提取内容，但必须保留 'id' 字段，否则 read_file 会报错
         return {
             "id": item["id"], 
-            "text_length": len(item["message"][0]["content"]),
-            "role": item["message"][0]["role"]
+            "text_length": len(item["messages"][0]["content"]),
+            "role": item["messages"][0]["role"]
         }
-    
+
+def _get_line_count(file_path: Path) -> int:
+    """
+    快速计算文件行数（不加载到内存）
+    对于大文件，这比直接遍历快得多
+    """
+    lines = 0
+    with file_path.open("rb") as f:
+        # 使用 1MB 的 buffer 逐块读取来数换行符
+        buf_size = 1024 * 1024
+        read_f = f.raw.read
+        buffer = read_f(buf_size)
+        while buffer:
+            lines += buffer.count(b'\n')
+            buffer = read_f(buf_size)
+    return lines
+
 def read_file(
     file_name: Union[str, Path], 
     *, 
@@ -150,6 +166,8 @@ def read_file(
             else:
                 if isinstance(item, str) or isinstance(item, int):
                     return_data.add(item)
+                else:
+                    raise RuntimeError(f"返回set集合时，若需要使用process_fn，则需要返回str 或 int对象")
 
     # 3. 根据文件类型分发处理
     match file_type:
@@ -161,7 +179,7 @@ def read_file(
                 iterator = islice(f, data_length)
                 
                 # 为了 tqdm 显示进度，如果知道 data_length，则传入 total
-                total_count = data_length if data_length else None
+                total_count = data_length if data_length else _get_line_count(file_name)
                 
                 for line in tqdm(iterator, total=total_count, disable=disable_tqdm):
                     if line := line.strip():

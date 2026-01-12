@@ -41,13 +41,13 @@ pip install bedrockx
 ### 5 分钟上手
 
 ```python
-from bedrockx import read_file, save_file, filter_data
+from bedrockx import read_file, save_file, filter_fn
 
 # 1. 读取数据（自动识别格式）
 data = read_file("data.jsonl")
 
 # 2. 处理数据
-filtered = filter_data(data, filter_set={1, 2}, main_key_column="id")
+filtered = filter_fn(data, filter_set={1, 2}, main_key_column="id")
 
 # 3. 保存结果
 save_file("output.json", filtered)
@@ -112,11 +112,11 @@ for item in data:
 #### 数据过滤
 
 ```python
-from bedrockx import filter_data
+from bedrockx import filter_fn
 
 # 过滤掉已处理的数据
 processed_ids = {1, 2, 3}
-new_data = filter_data(data, processed_ids, main_key_column="id")
+new_data = filter_fn(data, processed_ids, main_key_column="id")
 ```
 
 #### 数据去重
