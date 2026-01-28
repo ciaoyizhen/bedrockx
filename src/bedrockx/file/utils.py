@@ -272,11 +272,11 @@ def save_file(file_name: str|Path, data: list, file_type=None, *, encoding="utf-
         case "jsonl":
             with file_name.open("w", encoding=encoding) as f:
                 for item in data:
-                    f.write(json.dumps(item, ensure_ascii=ensure_ascii) + "\n")
+                    f.write(json.dumps(item, ensure_ascii=ensure_ascii, default=str) + "\n")
             base_logger.info(f"文件保存至 {file_name.resolve(strict=True)} ")
         case "json":
             with file_name.open("w", encoding=encoding) as f:
-                json.dump(data, f, ensure_ascii=ensure_ascii, indent=json_indent)
+                json.dump(data, f, ensure_ascii=ensure_ascii, indent=json_indent, default=str)
             base_logger.info(f"文件保存至 {file_name.resolve(strict=True)} ")
         case "xlsx":
             import pandas as pd
@@ -302,7 +302,7 @@ def return_to_jsonl(file_path, encoding="utf-8", ensure_ascii=False):
             error_msg = f"被装饰器的函数需要有返回，并且必须是str或dict"
             
             if isinstance(result, dict):
-                content = json.dumps(result, ensure_ascii=ensure_ascii)
+                content = json.dumps(result, ensure_ascii=ensure_ascii, default=str)
             elif isinstance(result, str):
                 content = result
             else:

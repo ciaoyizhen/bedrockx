@@ -54,7 +54,7 @@ class TestMultiThreading:
                 return item
         
         save_path = temp_dir / "output.jsonl"
-        processor = TestProcessor(max_workers=2, save_path=save_path, file_type="jsonl")
+        processor = TestProcessor(max_workers=2, save_path=save_path)
         
         data = [{"id": 1}]
         processor(data)

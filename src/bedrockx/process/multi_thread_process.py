@@ -36,7 +36,7 @@ class BaseMultiThreading():
             
         if self.file_type not in {"json", "jsonl", "xlsx", "csv"}:
             raise RuntimeError(f"传入的file_type不符合要求或你的文件后缀不符合要求")
-        assert self.file_type != "jsonl", f"抱歉，目前{self.file_type=}暂时不支持该功能，请使用jsonl"
+        assert self.file_type == "jsonl", f"抱歉，目前{self.file_type=}暂时不支持该功能，请使用jsonl"
         self.save_path.parent.mkdir(exist_ok=True)
         self.file_mode = "a" if continue_save else "w"
         self.post_init(**kwargs)
