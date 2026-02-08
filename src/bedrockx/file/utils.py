@@ -283,7 +283,16 @@ def save_file(file_name: str|Path, data: list, file_type=None, *, encoding="utf-
             df = pd.DataFrame(data)
             df.to_csv(file_name, **kwargs, index=pd_index)
         case _:
-            raise RuntimeError(f"保存文件识别,无法识别{file_type=},该保存成什么格式")
+            base_logger.warning(f"不支持的文件格式: {file_type}，将以 jsonl 格式保存")
+            fallback = file_name.with_suffix(".jsonl")
+            counter = 1
+            while fallback.exists():
+                fallback = file_name.parent / f"{file_name.stem}_{counter}.jsonl"
+                counter += 1
+            with fallback.open("w", encoding=encoding) as f:
+                for item in data:
+                    f.write(json.dumps(item, ensure_ascii=ensure_ascii, default=str) + "\n")
+            file_name = fallback
     base_logger.info(f"文件保存至 {file_name.resolve(strict=True)} ")
 
 def return_to_jsonl(file_path, encoding="utf-8", ensure_ascii=False):
