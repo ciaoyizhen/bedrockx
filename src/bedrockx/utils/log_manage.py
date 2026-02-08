@@ -5,7 +5,7 @@
 # @Contact :   yizhen.ciao@gmail.com
 # @Function:   日志的封装
 
-import os
+from pathlib import Path
 from loguru import logger
 from tqdm import tqdm
 
@@ -36,7 +36,7 @@ class LoggerManager:
 
         # 文件日志
         if log_path is not None:
-            os.makedirs(os.path.dirname(log_path), exist_ok=True)
+            Path(log_path).parent.mkdir(parents=True, exist_ok=True)
             logger.add(
                 log_path,
                 rotation=rotation,
