@@ -73,7 +73,7 @@ def _get_line_count(file_path: Path) -> int:
     """
     lines = 0
     with file_path.open("rb") as f:
-        # 使用 1MB 的 buffer 逐块读取来数换行符
+        # 使用 1MB 的 buffer 逐块读取来计数换行符
         buf_size = 1024 * 1024
         read_f = f.raw.read
         buffer = read_f(buf_size)
@@ -86,12 +86,12 @@ def read_file(
     file_name: Union[str, Path], 
     *, 
     output_type: Literal["list", "dict", "set"] = "list", 
-    file_type: str = None, 
-    main_key_column: str = None, 
-    encoding: str = "utf-8", 
-    disable_tqdm: bool = False, 
-    data_length: int = None, 
-    process_fn: Callable[[Any], Any] = None,
+    file_type: Optional[str] = None,
+    main_key_column: Optional[str] = None,
+    encoding: str = "utf-8",
+    disable_tqdm: bool = False,
+    data_length: Optional[int] = None,
+    process_fn: Optional[Callable[[Any], Any]] = None,
     **kwargs
 ) -> Union[List, Dict, Set]:
     """
@@ -164,7 +164,7 @@ def read_file(
                     raise RuntimeError(f"数据缺少 main_key_column='{main_key_column}'\n数据内容: {item}")
             # 情况 B: 没指定 key，直接把 item 加入集合 (适用于 process_fn 直接返回字符串/数字的情况)
             else:
-                if isinstance(item, str) or isinstance(item, int):
+                if isinstance(item, (str, int)):
                     return_data.add(item)
                 else:
                     raise RuntimeError(f"返回set集合时，若需要使用process_fn，则需要返回str 或 int对象")
@@ -251,45 +251,49 @@ def read_file(
                     for row in tqdm(iterator, total=total_count, disable=disable_tqdm):
                         _add_item(row)
                         
-                except ijson.common.IncompleteJSONError:
+                except ijson.common.IncompleteJSONError as e:
                     # 处理可能的 JSON 格式错误或文件截断
-                    raise RuntimeError("JSON 文件格式错误或不完整")
+                    raise RuntimeError("JSON 文件格式错误或不完整") from e
 
         case _:
             raise RuntimeError(f"不支持的文件格式: {file_type}。请检查后缀或显式传入 file_type")
 
     return return_data
 
-def save_file(file_name: str|Path, data: list, file_type=None, *, encoding="utf-8", ensure_ascii=False, json_indent=4, pd_index=False,**kwargs):
+def save_file(file_name: str|Path, data: list, file_type=None, *, encoding="utf-8", ensure_ascii=False, json_indent=4, pd_index=False,**kwargs) -> None:
     if isinstance(file_name, str):
         file_name = Path(file_name)
-        
+
     file_name.parent.mkdir(exist_ok=True, parents=True)
     if file_type is None:
         file_type = file_name.suffix.lstrip(".")
-        
+
     match file_type:
         case "jsonl":
             with file_name.open("w", encoding=encoding) as f:
                 for item in data:
                     f.write(json.dumps(item, ensure_ascii=ensure_ascii, default=str) + "\n")
-            base_logger.info(f"文件保存至 {file_name.resolve(strict=True)} ")
         case "json":
             with file_name.open("w", encoding=encoding) as f:
                 json.dump(data, f, ensure_ascii=ensure_ascii, indent=json_indent, default=str)
-            base_logger.info(f"文件保存至 {file_name.resolve(strict=True)} ")
         case "xlsx":
-            import pandas as pd
-            data = pd.DataFrame(data)
-            data.to_excel(file_name, **kwargs, index=pd_index)
-            base_logger.info(f"文件保存至 {file_name.resolve(strict=True)} ")
+            df = pd.DataFrame(data)
+            df.to_excel(file_name, **kwargs, index=pd_index)
         case "csv":
-            import pandas as pd
-            data = pd.DataFrame(data)
-            data.to_csv(file_name, **kwargs, index=pd_index)
-            base_logger.info(f"文件保存至 {file_name.resolve(strict=True)} ")
+            df = pd.DataFrame(data)
+            df.to_csv(file_name, **kwargs, index=pd_index)
         case _:
-            raise RuntimeError(f"保存文件识别,无法识别{file_type=},该保存成什么格式")
+            base_logger.warning(f"不支持的文件格式: {file_type}，将以 jsonl 格式保存")
+            fallback = file_name.with_suffix(".jsonl")
+            counter = 1
+            while fallback.exists():
+                fallback = file_name.parent / f"{file_name.stem}_{counter}.jsonl"
+                counter += 1
+            with fallback.open("w", encoding=encoding) as f:
+                for item in data:
+                    f.write(json.dumps(item, ensure_ascii=ensure_ascii, default=str) + "\n")
+            file_name = fallback
+    base_logger.info(f"文件保存至 {file_name.resolve(strict=True)} ")
 
 def return_to_jsonl(file_path, encoding="utf-8", ensure_ascii=False):
     """

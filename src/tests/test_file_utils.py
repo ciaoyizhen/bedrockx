@@ -278,11 +278,28 @@ class TestSaveFile:
         assert file_path.exists()
     
     def test_save_invalid_file_type(self, temp_dir, sample_data):
-        """测试无效的文件类型"""
+        """测试无效的文件类型会 fallback 为 jsonl 保存"""
         file_path = temp_dir / "output.unknown"
-        
-        with pytest.raises(RuntimeError, match="保存文件识别"):
-            save_file(file_path, sample_data)
+        save_file(file_path, sample_data)
+
+        fallback_path = temp_dir / "output.jsonl"
+        assert fallback_path.exists()
+        result = read_file(fallback_path)
+        assert len(result) == len(sample_data)
+
+    def test_save_invalid_file_type_with_conflict(self, temp_dir, sample_data):
+        """测试 fallback 文件已存在时自动添加后缀"""
+        file_path = temp_dir / "output.unknown"
+        # 先创建一个同名 jsonl 文件占位
+        existing = temp_dir / "output.jsonl"
+        existing.write_text("")
+
+        save_file(file_path, sample_data)
+
+        fallback_path = temp_dir / "output_1.jsonl"
+        assert fallback_path.exists()
+        result = read_file(fallback_path)
+        assert len(result) == len(sample_data)
     
     def test_save_empty_data(self, temp_dir):
         """测试保存空数据"""
