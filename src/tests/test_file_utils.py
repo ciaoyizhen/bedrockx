@@ -1,4 +1,6 @@
+import json
 import pytest
+import pandas as pd
 from pathlib import Path
 from bedrockx.file import read_file, save_file, add_suffix_file, return_to_jsonl, ReadFileExampleCallBack
 
@@ -406,3 +408,146 @@ class TestReturnToJsonl:
         process_data()
         assert file_path.exists()
         assert file_path.parent.exists()
+
+
+class TestNaNHandling:
+    """测试读取 CSV/Excel 时的 NaN 值处理"""
+
+    def test_excel_nan_to_empty_string(self, temp_dir):
+        """测试 Excel 文件中的 NaN 默认转换为空字符串"""
+        excel_file = temp_dir / "test_nan.xlsx"
+        df = pd.DataFrame({
+            "name": ["Alice", "Bob", None, "David"],
+            "age": [25, None, 30, None],
+            "city": ["Beijing", None, "Shanghai", ""]
+        })
+        df.to_excel(excel_file, index=False)
+
+        data = read_file(excel_file)
+
+        assert data[2]["name"] == ""
+        assert data[1]["age"] == ""
+        assert data[1]["city"] == ""
+
+        # 保存为 jsonl 后验证没有 null
+        jsonl_file = temp_dir / "output.jsonl"
+        save_file(jsonl_file, data)
+        with open(jsonl_file, "r", encoding="utf-8") as f:
+            for line in f:
+                item = json.loads(line)
+                for value in item.values():
+                    assert value is not None
+
+    def test_csv_nan_to_empty_string(self, temp_dir):
+        """测试 CSV 文件中的 NaN 默认转换为空字符串"""
+        csv_file = temp_dir / "test_nan.csv"
+        df = pd.DataFrame({
+            "product": ["Apple", None, "Orange"],
+            "price": [10.5, None, 8.0],
+            "stock": [100, 50, None]
+        })
+        df.to_csv(csv_file, index=False)
+
+        data = read_file(csv_file)
+
+        assert data[1]["product"] == ""
+        assert data[1]["price"] == ""
+        assert data[2]["stock"] == ""
+
+    def test_excel_multiple_sheets_nan(self, temp_dir):
+        """测试多 sheet Excel 的 NaN 处理"""
+        excel_file = temp_dir / "multi_sheet_nan.xlsx"
+
+        with pd.ExcelWriter(excel_file) as writer:
+            df1 = pd.DataFrame({"col1": [1, None, 3]})
+            df2 = pd.DataFrame({"col2": [None, 2, 3]})
+            df1.to_excel(writer, sheet_name="Sheet1", index=False)
+            df2.to_excel(writer, sheet_name="Sheet2", index=False)
+
+        data = read_file(excel_file, sheet_name="all")
+
+        assert len(data) == 6
+        assert data[1]["col1"] == ""
+        assert data[3]["col2"] == ""
+
+        for item in data:
+            for value in item.values():
+                assert value is not None
+
+    def test_na_filter_true_keeps_nan(self, temp_dir):
+        """测试 na_filter=True 时保留 NaN 行为"""
+        csv_file = temp_dir / "test_na_filter.csv"
+        df = pd.DataFrame({"name": ["Alice", None, "Bob"]})
+        df.to_csv(csv_file, index=False)
+
+        data = read_file(csv_file, na_filter=True)
+        # na_filter=True 时，空值应该是 NaN（float）
+        assert pd.isna(data[1]["name"])
+
+
+class TestSaveFileOverload:
+    """测试 save_file 函数重载功能"""
+
+    def test_save_file_original_order(self, temp_dir, sample_data):
+        """测试原始参数顺序：save_file(file_name, data)"""
+        file_path = temp_dir / "original.jsonl"
+        save_file(file_path, sample_data)
+
+        assert file_path.exists()
+        result = read_file(file_path)
+        assert len(result) == 3
+        assert result[0]["name"] == "Alice"
+
+    def test_save_file_reversed_order(self, temp_dir, sample_data):
+        """测试反转参数顺序：save_file(data, file_name)"""
+        file_path = temp_dir / "reversed.jsonl"
+        save_file(sample_data, file_path)
+
+        assert file_path.exists()
+        result = read_file(file_path)
+        assert len(result) == 3
+        assert result[0]["name"] == "Alice"
+
+    def test_save_file_both_orders_same_result(self, temp_dir, sample_data):
+        """测试两种参数顺序产生相同结果"""
+        file1 = temp_dir / "order1.jsonl"
+        file2 = temp_dir / "order2.jsonl"
+
+        save_file(file1, sample_data)
+        save_file(sample_data, file2)
+
+        assert read_file(file1) == read_file(file2)
+
+    def test_save_file_reversed_with_string_path(self, temp_dir, sample_data):
+        """测试使用字符串路径的反转顺序"""
+        file_path = str(temp_dir / "string_reversed.jsonl")
+        save_file(sample_data, file_path)
+
+        assert Path(file_path).exists()
+        assert len(read_file(file_path)) == 3
+
+    def test_save_file_reversed_xlsx(self, temp_dir, sample_data):
+        """测试 Excel 格式的反转顺序"""
+        file_path = temp_dir / "reversed.xlsx"
+        save_file(sample_data, file_path)
+
+        assert file_path.exists()
+        assert len(read_file(file_path)) == 3
+
+    def test_save_file_reversed_csv(self, temp_dir, sample_data):
+        """测试 CSV 格式的反转顺序"""
+        file_path = temp_dir / "reversed.csv"
+        save_file(sample_data, file_path)
+
+        assert file_path.exists()
+        assert len(read_file(file_path)) == 3
+
+    def test_save_file_invalid_first_arg(self, temp_dir):
+        """测试第一个参数类型无效"""
+        with pytest.raises(TypeError, match="第一个参数必须是文件名.*或数据"):
+            save_file(123, temp_dir / "test.jsonl")
+
+    def test_save_file_missing_data(self, temp_dir):
+        """测试缺少 data 参数"""
+        with pytest.raises(ValueError, match="data 参数不能为 None"):
+            save_file(temp_dir / "test.jsonl", None)

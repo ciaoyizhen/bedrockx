@@ -9,7 +9,7 @@ import inspect
 import ijson
 from itertools import islice
 from pathlib import Path
-from typing import List, Dict, Literal, Union, Optional, Set, Callable, Any
+from typing import List, Dict, Literal, Union, Optional, Set, Callable, Any, overload
 from tqdm import tqdm
 from functools import wraps
 from ..utils.log_manage import base_logger
@@ -83,15 +83,16 @@ def _get_line_count(file_path: Path) -> int:
     return lines
 
 def read_file(
-    file_name: Union[str, Path], 
-    *, 
-    output_type: Literal["list", "dict", "set"] = "list", 
+    file_name: Union[str, Path],
+    *,
+    output_type: Literal["list", "dict", "set"] = "list",
     file_type: Optional[str] = None,
     main_key_column: Optional[str] = None,
     encoding: str = "utf-8",
     disable_tqdm: bool = False,
     data_length: Optional[int] = None,
     process_fn: Optional[Callable[[Any], Any]] = None,
+    na_filter: bool = False,
     **kwargs
 ) -> Union[List, Dict, Set]:
     """
@@ -107,7 +108,8 @@ def read_file(
         disable_tqdm (bool): 是否关闭进度条
         data_length (int): 读取的数据条数（支持 jsonl/csv/xlsx 的局部读取优化）
         process_fn (Callable): 支持读取时直接做处理
-        **kwargs: 
+        na_filter (bool): 是否将空值转换为NaN，默认为False（空值保持为空字符串）
+        **kwargs:
             - sheet_name (str): 读取xlsx时指定，默认为第一个。传 "all" 读取所有 sheet。
     """
     
@@ -192,13 +194,13 @@ def read_file(
 
         # ---------------- CSV (Pandas nrows 优化) ----------------
         case "csv":
-            
+
             # 利用 pd.read_csv 的 nrows 参数只读取前 N 行
-            df = pd.read_csv(file_name, encoding=encoding, nrows=data_length, **kwargs)
-            
+            df = pd.read_csv(file_name, encoding=encoding, nrows=data_length, na_filter=na_filter, **kwargs)
+
             # 转换由于 pandas iterrows 较慢，直接转 dict list 处理更快
             records = df.to_dict(orient="records")
-            
+
             for row in tqdm(records, disable=disable_tqdm):
                 _add_item(row)
 
@@ -209,12 +211,12 @@ def read_file(
             sheet_name_arg = kwargs.pop("sheet_name", 0) # 默认读第一个
             if sheet_name_arg == "all":
                 sheet_name_arg = None # pandas 传 None 会读取所有 sheet 返回 dict
-            
+
             # 读取数据 (利用 nrows 优化)
-            dfs_result = pd.read_excel(file_name, sheet_name=sheet_name_arg, nrows=data_length, **kwargs)
+            dfs_result = pd.read_excel(file_name, sheet_name=sheet_name_arg, nrows=data_length, na_filter=na_filter, **kwargs)
             
             all_records = []
-            
+
             # 如果读取了所有 sheet (返回的是 dict: {sheet_name: df})
             if isinstance(dfs_result, dict):
                 for sheet_name, df in dfs_result.items():
@@ -233,7 +235,7 @@ def read_file(
 
         # ---------------- JSON (标准库限制) ----------------
         case "json":
-            with file_name.open("r", encoding=encoding) as f:
+            with file_name.open("rb") as f:
                 # 'item' 指示 ijson 解析根级数组中的每个元素
                 # 这要求 JSON 文件的根必须是列表 [ ... ]
                 try:
@@ -260,7 +262,36 @@ def read_file(
 
     return return_data
 
-def save_file(file_name: str|Path, data: list, file_type=None, *, encoding="utf-8", ensure_ascii=False, json_indent=4, pd_index=False,**kwargs) -> None:
+@overload
+def save_file(file_name: Union[str, Path], data: list, file_type=None, *, encoding="utf-8", ensure_ascii=False, json_indent=4, pd_index=False, **kwargs) -> None:
+    """第一个参数是文件名，第二个参数是数据"""
+    ...
+
+@overload
+def save_file(data: list, file_name: Union[str, Path], file_type=None, *, encoding="utf-8", ensure_ascii=False, json_indent=4, pd_index=False, **kwargs) -> None:
+    """第一个参数是数据，第二个参数是文件名"""
+    ...
+
+def save_file(file_name_or_data, data_or_file_name=None, file_type=None, *, encoding="utf-8", ensure_ascii=False, json_indent=4, pd_index=False, **kwargs) -> None:
+    """
+    保存文件，支持两种调用方式：
+    1. save_file(file_name, data)  # 第一个参数是文件名
+    2. save_file(data, file_name)  # 第一个参数是数据
+    """
+    # 判断参数顺序：如果第一个参数是字符串或Path，则按照原来的顺序
+    if isinstance(file_name_or_data, (str, Path)):
+        file_name = file_name_or_data
+        data = data_or_file_name
+    # 如果第一个参数是list或dict，则说明是数据，需要交换顺序
+    elif isinstance(file_name_or_data, (list, dict)):
+        data = file_name_or_data
+        file_name = data_or_file_name
+    else:
+        raise TypeError(f"第一个参数必须是文件名(str/Path)或数据(list/dict)，收到的类型是: {type(file_name_or_data)}")
+
+    if data is None:
+        raise ValueError("data 参数不能为 None")
+
     if isinstance(file_name, str):
         file_name = Path(file_name)
 
